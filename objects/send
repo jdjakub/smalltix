@@ -1,0 +1,50 @@
+set -xeuo pipefail
+recv=$1
+selector=$2
+shift 2
+args="$@"
+
+###### Optimised Arithmetic ########
+# In case the receiver is a 'tagged' int or float, do the calcs here
+with_leading_zero() {
+    local str=$1
+    if [[ ${str:0:1} == "." ]]; then
+        printf float/0$str
+    else
+        printf float/$str
+    fi
+}
+
+# e.g. ./send int/12 \* float/-3.141
+# = float/-37.692
+recv_tag=${recv%/*}
+if [[ $recv_tag == "int" || $recv_tag == "float" ]]; then
+    recv_num=${recv##*/}
+    case "$selector" in
+    \+ | \- | \* | \/ )
+        arg_tag=${1%/*}
+        arg_num=${1##*/}
+        if [[ $recv_tag == "int" && $arg_tag == "int" ]]; then
+            printf int/$(( $recv_num $selector $arg_num ))
+        else
+            with_leading_zero $(bc -l <<< "$recv_num $selector $arg_num")
+        fi
+        ;;
+    *)
+        if [[ $selector == "rounded" ]]; then
+            if [[ $recv_tag == "int" ]]; then
+                printf $recv
+            else
+                with_leading_zero $(bc <<< "($recv_num+0.5)/1")
+            fi
+        elif [[ $selector == "@" ]]; then
+            ./send Point x-y- $recv $1
+        fi
+        ;;
+    esac
+    exit 0
+fi
+
+###### Ordinary Send Path ########
+method=$(./bind $recv $selector)
+$method $recv $args

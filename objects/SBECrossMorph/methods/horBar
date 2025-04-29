@@ -1,0 +1,11 @@
+# | crossHeight |
+# crossHeight := (self height / 3.0) rounded.
+# ^ self bounds insetBy: 0 @ crossHeight.
+#
+self=$1
+tmp1=$(./send $self height)
+tmp2=$(./send $tmp1 / float/3.0)
+crossHeight=$(./send $tmp2 rounded)
+tmp4=$(./send int/0 @ $crossHeight)
+tmp5=$(./send $self bounds)
+./send $tmp5 insetBy- $tmp4

@@ -1,0 +1,7 @@
+# ^ corner y - origin y
+self=$1
+corner=$(cat $self/corner)
+origin=$(cat $self/origin)
+t1=$(./send $corner y)
+t2=$(./send $origin y)
+./send $t1 - $t2

@@ -1,0 +1,2 @@
+self=$1
+cat $self/x

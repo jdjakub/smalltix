@@ -1,0 +1,3 @@
+# ^ y
+self=$1
+cat $self/y

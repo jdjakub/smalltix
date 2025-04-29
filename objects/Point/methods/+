@@ -1,0 +1,11 @@
+# ^ (x + arg x) @ (y + arg y)
+self=$1
+arg=$2
+x=$(cat $self/x)
+y=$(cat $self/y)
+argx=$(./send $arg x)
+argy=$(./send $arg y)
+tmp1=$(./send $x + $argx)
+tmp2=$(./send $y + $argy)
+newPt=$(./send $tmp1 @ $tmp2)
+printf $newPt

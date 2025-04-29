@@ -1,0 +1,11 @@
+set -euo pipefail
+recv=$1
+selector=$2
+class=$(cat $recv/class)
+if [[ $class == "Class" ]]; then
+  class=$recv # Support class methods sent to the class object
+fi
+while [[ ! -e $class/methods/$selector ]]; do
+  class=$(cat $class/superclass)
+done
+printf $class/methods/$selector

@@ -1,0 +1,5 @@
+# ^ self basicNew setOrigin: origin corner: corner
+self=$1
+newObj=$(./send $self basicNew)
+./send $newObj setOrigin-corner- $2 $3
+printf $newObj

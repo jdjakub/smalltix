@@ -1,0 +1,9 @@
+# ^ Rectangle origin: origin + delta corner: corner - delta
+# Assumes: delta is a Point
+self=$1
+delta=$2
+origin=$(cat $self/origin)
+corner=$(cat $self/corner)
+tmp1=$(./send $origin + $delta)
+tmp2=$(./send $corner - $delta)
+./send Rectangle origin-corner- $tmp1 $tmp2

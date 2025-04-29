@@ -1,0 +1,4 @@
+# ^ bounds height
+self=$1
+bounds=$(cat $self/bounds)
+./send $bounds height

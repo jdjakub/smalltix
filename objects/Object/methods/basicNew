@@ -1,0 +1,7 @@
+selfClass=$1
+objCounter=$(cat Object/objCounter)
+objName=obj$objCounter
+mkdir $objName
+printf $selfClass > $objName/class
+printf $((objCounter + 1)) > Object/objCounter
+printf $objName
