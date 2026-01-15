@@ -1,0 +1,13 @@
+# Output of ./st2bash.py horBar.st horBar
+# horBar
+#     | crossHeight |
+#     crossHeight := (self height / 3.0) rounded.
+#     ^ self bounds insetBy: 0 @ crossHeight.
+#
+self=$1
+tmp1=$(./send $self height)
+tmp2=$(./send $tmp1 / float/3.0)
+crossHeight=$(./send $tmp2 rounded)
+tmp3=$(./send $self bounds)
+tmp4=$(./send int/0 @ $crossHeight)
+./send $tmp3 insetBy- $tmp4
