@@ -1,0 +1,5 @@
+self=$1
+theElement=$2
+newObj=$(./send $self basicNew)
+printf $theElement > $newObj/1
+printf $newObj

@@ -1,0 +1,4 @@
+# ^ bounds width
+self=$1
+bounds=$(cat $self/bounds)
+./send $bounds width

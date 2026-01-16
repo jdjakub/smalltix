@@ -8,4 +8,4 @@ tmp2=$(./send $tmp1 / float/3.0)
 crossWidth=$(./send $tmp2 rounded)
 tmp4=$(./send $crossWidth \@ int/0)
 tmp5=$(./send $self bounds)
-./send $tmp5 insetBy $tmp4
+./send $tmp5 insetBy- $tmp4

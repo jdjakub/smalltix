@@ -1,0 +1,6 @@
+# BlockClosure >> value: theArg
+self=$1
+theArg=$2
+bindings=$(cat $self/_bindings)
+codePath=$(cat $self/_code)
+$codePath $bindings $theArg

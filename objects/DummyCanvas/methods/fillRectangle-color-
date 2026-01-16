@@ -1,0 +1,5 @@
+self=$1
+theRect=$2
+theColor=$3
+echo 1>&2 '[ CANVAS COMMAND ]:' $self fillRectangle: $theRect color: $theColor
+printf nil

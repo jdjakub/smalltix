@@ -1,0 +1,37 @@
+# drawOn: aCanvas
+# 	| topAndBottom |
+# 	aCanvas fillRectangle: self horBar color: self color.
+# 	topAndBottom := self verBar areasOutside: self horBar.
+# 	topAndBottom do: [:each | aCanvas fillRectangle: each color: self color].
+self=$1
+aCanvas=$2
+tmp1=$(./send $self horBar)
+tmp2=$(./send $self color)
+tmp3=$(./send $aCanvas fillRectangle-color- $tmp1 $tmp2)
+tmp4=$(./send $self verBar)
+tmp5=$(./send $self horBar)
+topAndBottom=$(./send $tmp4 areasOutside- $tmp5)
+# Above is st2bash.
+# Hand-compile the BlockClosure stuff. TODO: automate
+# TODO: Should probably actually send it i.e. BlockClosure newWithCode:andSelf:and:and:and:...etc
+# it's just that the arg pattern is variable, so idk what to do
+block1=$(BlockClosure/methods/new SBECrossMorph/methods/drawOn-~block1 $self $topAndBottom $aCanvas)
+#
+# aBlock
+# |- class = BlockClosure
+# |- _code = SBECrossMorph/methods/drawOn-~block1
+# |- _bindings/
+#    |- 1 = $self
+#    |- 2 = $topAndBottom
+#    |- 3 = $aCanvas
+# 
+# # drawOn-~block1
+# # _method: topAndBottom and: aCanvas and: each
+# # aCanvas fillRectangle: each color: self color
+# self=$1
+# topAndBottom=$2
+# aCanvas=$3
+# each=$4
+# tmp1=$(./send $self color)
+# ./send $aCanvas fillRectangle-color- $each $tmp1
+./send $topAndBottom do- $block1

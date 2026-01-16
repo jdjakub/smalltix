@@ -1,0 +1,14 @@
+# !! Not really a method ... must fix
+# BlockClosure/methods/new <codePath> <self> <...bindingVals...>
+# theNewBlock
+# |- class = BlockClosure
+# |- _code = <codePath>
+# |- _bindings = "<self> ... bindingVals ..."
+codePath=$1
+theSelf=$2
+theNewBlock=$(./send BlockClosure basicNew)
+printf $codePath > $theNewBlock/_code
+shift 2
+bindingVals="$@"
+printf "$theSelf $bindingVals" > $theNewBlock/_bindings
+printf $theNewBlock
