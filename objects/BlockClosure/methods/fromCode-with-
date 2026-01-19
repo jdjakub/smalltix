@@ -1,0 +1,12 @@
+# BlockClosure >> fromCode: codePath with: bindingsArray
+# theNewBlock
+# |- class = BlockClosure
+# |- _code = codePath
+# |- bindings = bindingsArray { self, ... temps ..., ... args ... }
+self=$1
+codePath=$2
+theNewBlock=$(./send $self basicNew)
+printf $codePath > $theNewBlock/_code
+bindingsArray=$3
+printf $bindingsArray > $theNewBlock/bindings
+printf $theNewBlock

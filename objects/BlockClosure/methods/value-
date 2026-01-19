@@ -1,6 +1,7 @@
 # BlockClosure >> value: theArg
 self=$1
 theArg=$2
-bindings=$(cat $self/_bindings)
+bindingsArray=$(cat $self/bindings)
+bindings=$(cat $bindingsArray/_elements) # naughty - private access
 codePath=$(cat $self/_code)
 $codePath $bindings $theArg
