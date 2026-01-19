@@ -1,7 +1,16 @@
 selfClass=$1
 objCounter=$(cat Object/objCounter)
-objName=obj$objCounter
-mkdir $objName
-printf $selfClass > $objName/class
-printf $((objCounter + 1)) > Object/objCounter
-printf $objName
+objCounter=${objCounter##*/}
+# Name it properly: e.g. anObject, aRectangle
+firstChar=${selfClass:0:1}
+if [[ "AEIOU" == *"$firstChar"* ]]; then
+    prefix="an"
+else
+    prefix="a"
+fi
+objName=${prefix}${selfClass}_${objCounter}
+objPath=_new/$objName # TODO: maybe somewhere in /tmp
+mkdir $objPath
+printf $selfClass > $objPath/class
+printf int/$((objCounter + 1)) > Object/objCounter
+printf $objPath

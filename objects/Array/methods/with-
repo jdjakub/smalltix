@@ -1,5 +1,11 @@
+# Array >> with: theElement
+# 	"Answer a new instance of me, containing theElement."
+# 	| newCollection |
+# 	newCollection := self new: 1.
+# 	newCollection at: 1 put: theElement.
+# 	^newCollection
 self=$1
 theElement=$2
-newObj=$(./send $self basicNew)
-printf $theElement > $newObj/1
-printf $newObj
+newCollection=$(./send $self new- int/1)
+_=$(./send $newCollection at-put- int/1 $theElement)
+printf $newCollection

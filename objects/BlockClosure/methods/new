@@ -5,10 +5,9 @@
 # |- _code = <codePath>
 # |- _bindings = "<self> ... bindingVals ..."
 codePath=$1
-theSelf=$2
 theNewBlock=$(./send BlockClosure basicNew)
 printf $codePath > $theNewBlock/_code
-shift 2
+shift 1
 bindingVals="$@"
-printf "$theSelf $bindingVals" > $theNewBlock/_bindings
+printf "$bindingVals" > $theNewBlock/_bindings
 printf $theNewBlock

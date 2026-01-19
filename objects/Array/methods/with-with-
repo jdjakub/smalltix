@@ -1,0 +1,14 @@
+# Array >> with: obj1 with: obj2 
+# 	"Answer a new instance of me, containing obj1 and obj2."
+# 	| newCollection |
+# 	newCollection := self new: 2.
+# 	newCollection at: 1 put: obj1.
+# 	newCollection at: 2 put: obj2.
+# 	^newCollection
+self=$1
+obj1=$2
+obj2=$3
+newCollection=$(./send $self new- int/2)
+_=$(./send $newCollection at-put- int/1 $obj1)
+_=$(./send $newCollection at-put- int/2 $obj2)
+printf $newCollection

@@ -1,9 +1,8 @@
 # Array >> do: theBlock
 self=$1
 theBlock=$2
-for ((i=1; ; i++)); do
-  if [[ ! -e $self/$i ]]; then break; fi
-  element=$(cat $self/$i)
-  output=$(./send $theBlock value- $element)
+elements=$(cat $self/_elements)
+for elem in $elements; do
+  output=$(./send $theBlock value- $elem)
 done
 printf $output

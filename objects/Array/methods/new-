@@ -1,0 +1,8 @@
+# Array >> new: howMany
+self=$1
+howMany=${2##*/}
+newObj=$(./send $self basicNew)
+for ((i=$howMany; i>0; i--)); do
+  printf 'nil ' >> $newObj/_elements
+done
+printf $newObj

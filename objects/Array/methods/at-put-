@@ -1,0 +1,8 @@
+# Array >> at: i put: theValue
+self=$1
+index=${2##*/}
+theValue=$3
+# For each line, replace word #i with val and print(1)
+tmp=$(awk -v i=$index -v val=$theValue '{$i=val}1' $self/_elements)
+printf "$tmp" > $self/_elements
+printf $theValue
