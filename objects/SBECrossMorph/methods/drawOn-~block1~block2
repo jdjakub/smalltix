@@ -1,0 +1,13 @@
+# _method: self and: myTemp and: eachArray and: topAndBottom2 and: topAndBottoms and: aCanvas and: topAndBottom1 and: each
+# aCanvas fillRectangle: each color: self color
+#
+self=$1
+myTemp=$2
+eachArray=$3
+topAndBottom2=$4
+topAndBottoms=$5
+aCanvas=$6
+topAndBottom1=$7
+each=$8
+tmp1=$(./send $self color)
+./send $aCanvas fillRectangle-color- $each $tmp1

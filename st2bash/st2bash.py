@@ -12,7 +12,7 @@ Author: Claude Opus 4.5 (Anthropic)
 import re
 import sys
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Set
 
 # ----------------------------------------------------------------------
 # Tokens
@@ -22,6 +22,7 @@ from typing import List, Optional, Tuple
 class Token:
     type: str
     value: str
+    pos: int = 0  # position in source
 
 def tokenize(source: str) -> List[Token]:
     tokens = []
@@ -43,31 +44,31 @@ def tokenize(source: str) -> List[Token]:
         
         # Return arrow
         if source[i] == '^':
-            tokens.append(Token('CARET', '^'))
+            tokens.append(Token('CARET', '^', i))
             i += 1
             continue
         
         # Assignment
         if source[i:i+2] == ':=':
-            tokens.append(Token('ASSIGN', ':='))
+            tokens.append(Token('ASSIGN', ':=', i))
             i += 2
             continue
         
         # Dot (statement separator)
         if source[i] == '.':
-            tokens.append(Token('DOT', '.'))
+            tokens.append(Token('DOT', '.', i))
             i += 1
             continue
         
         # Semicolon (cascade)
         if source[i] == ';':
-            tokens.append(Token('SEMI', ';'))
+            tokens.append(Token('SEMI', ';', i))
             i += 1
             continue
         
         # Parentheses
         if source[i] == '(':
-            tokens.append(Token('LPAREN', '('))
+            tokens.append(Token('LPAREN', '(', i))
             i += 1
             continue
         if source[i] == ')':
@@ -75,24 +76,25 @@ def tokenize(source: str) -> List[Token]:
             i += 1
             continue
         
-        # Block brackets (not fully supported yet)
+        # Block brackets
         if source[i] == '[':
-            tokens.append(Token('LBRACKET', '['))
+            tokens.append(Token('LBRACKET', '[', i))
             i += 1
             continue
         if source[i] == ']':
-            tokens.append(Token('RBRACKET', ']'))
+            tokens.append(Token('RBRACKET', ']', i))
             i += 1
             continue
         
         # Vertical bar (for temporaries)
         if source[i] == '|':
-            tokens.append(Token('BAR', '|'))
+            tokens.append(Token('BAR', '|', i))
             i += 1
             continue
         
         # Numbers (integer or float)
         if source[i].isdigit() or (source[i] == '-' and i + 1 < len(source) and source[i+1].isdigit()):
+            start = i
             j = i
             if source[j] == '-':
                 j += 1
@@ -103,14 +105,15 @@ def tokenize(source: str) -> List[Token]:
                 j += 1
                 while j < len(source) and source[j].isdigit():
                     j += 1
-                tokens.append(Token('FLOAT', source[i:j]))
+                tokens.append(Token('FLOAT', source[i:j], start))
             else:
-                tokens.append(Token('INT', source[i:j]))
+                tokens.append(Token('INT', source[i:j], start))
             i = j
             continue
         
         # String literals
         if source[i] == "'":
+            start = i
             j = i + 1
             while j < len(source):
                 if source[j] == "'":
@@ -120,56 +123,69 @@ def tokenize(source: str) -> List[Token]:
                         break
                 else:
                     j += 1
-            tokens.append(Token('STRING', source[i+1:j]))
+            tokens.append(Token('STRING', source[i+1:j], start))
             i = j + 1
             continue
         
         # Symbol literals (#symbol or #'symbol with spaces')
         if source[i] == '#':
+            start = i
             if i + 1 < len(source) and source[i+1] == "'":
                 # #'symbol with spaces'
                 j = i + 2
                 while j < len(source) and source[j] != "'":
                     j += 1
-                tokens.append(Token('SYMBOL', source[i+2:j]))
+                tokens.append(Token('SYMBOL', source[i+2:j], start))
                 i = j + 1
             else:
                 # #symbol
                 j = i + 1
                 while j < len(source) and (source[j].isalnum() or source[j] in '_:'):
                     j += 1
-                tokens.append(Token('SYMBOL', source[i+1:j]))
+                tokens.append(Token('SYMBOL', source[i+1:j], start))
                 i = j
             continue
         
         # Identifiers and keywords
         if source[i].isalpha() or source[i] == '_':
+            start = i
             j = i
             while j < len(source) and (source[j].isalnum() or source[j] == '_'):
                 j += 1
             name = source[i:j]
             # Check if it's a keyword (ends with :)
             if j < len(source) and source[j] == ':':
-                tokens.append(Token('KEYWORD', name + ':'))
+                tokens.append(Token('KEYWORD', name + ':', start))
                 i = j + 1
             else:
-                tokens.append(Token('NAME', name))
+                tokens.append(Token('NAME', name, start))
                 i = j
+            continue
+        
+        # Block parameter (colon followed by name)
+        if source[i] == ':' and i + 1 < len(source) and source[i+1].isalpha():
+            start = i
+            j = i + 1
+            while j < len(source) and (source[j].isalnum() or source[j] == '_'):
+                j += 1
+            tokens.append(Token('BLOCKPARAM', source[i+1:j], start))
+            i = j
             continue
         
         # Binary selectors (operators)
         binary_chars = '+-*/\\<>=@%|&?,~'
         if source[i] in binary_chars:
+            start = i
             j = i
             while j < len(source) and source[j] in binary_chars:
                 j += 1
-            tokens.append(Token('BINARY', source[i:j]))
+            tokens.append(Token('BINARY', source[i:j], start))
             i = j
             continue
         
         raise SyntaxError(f"Unexpected character: {source[i]!r} at position {i}")
     
-    tokens.append(Token('EOF', ''))
+    tokens.append(Token('EOF', '', len(source)))
     return tokens
 
 # ----------------------------------------------------------------------
@@ -212,7 +228,10 @@ class ReturnNode(ASTNode):
 @dataclass
 class BlockNode(ASTNode):
     params: List[str]
+    temps: List[str]
     body: List[ASTNode]
+    body_start: int = 0  # position of first body token in source
+    body_end: int = 0    # position of ']' in source
 
 @dataclass
 class MethodNode(ASTNode):
@@ -226,9 +245,10 @@ class MethodNode(ASTNode):
 # ----------------------------------------------------------------------
 
 class Parser:
-    def __init__(self, tokens: List[Token]):
+    def __init__(self, tokens: List[Token], source: str = ''):
         self.tokens = tokens
         self.pos = 0
+        self.source = source
     
     def current(self) -> Token:
         return self.tokens[self.pos]
@@ -237,7 +257,7 @@ class Parser:
         pos = self.pos + offset
         if pos < len(self.tokens):
             return self.tokens[pos]
-        return Token('EOF', '')
+        return Token('EOF', '', 0)
     
     def advance(self) -> Token:
         tok = self.current()
@@ -452,51 +472,111 @@ class Parser:
             raise SyntaxError(f"Unexpected token in primary: {tok.type} ({tok.value!r})")
     
     def parse_block(self) -> BlockNode:
-        """Parse a block: [ :param | statements ]"""
+        """Parse a block: [ :param1 :param2 | | temps | statements ]"""
+        start_tok = self.current()
+        source_start = start_tok.pos
         self.expect('LBRACKET')
         
+        # Parse block parameters :param1 :param2 ... |
         params = []
-        # Parse block parameters :param1 :param2 |
-        while self.current().type == 'KEYWORD' and self.current().value.startswith(':'):
-            # Block params look like :name but tokenizer sees them differently
-            # Actually in Smalltalk block params are : followed by name
-            pass
+        while self.current().type == 'BLOCKPARAM':
+            params.append(self.advance().value)
         
-        # For now, blocks are not fully supported
-        # Just consume until ]
-        depth = 1
-        while depth > 0:
-            tok = self.advance()
-            if tok.type == 'LBRACKET':
-                depth += 1
-            elif tok.type == 'RBRACKET':
-                depth -= 1
-            elif tok.type == 'EOF':
-                raise SyntaxError("Unclosed block")
+        # If we had params, expect a | to end them
+        if params:
+            self.expect('BAR')
         
-        return BlockNode([], [])
+        # Parse temporaries (optional)
+        temps = []
+        if self.current().type == 'BAR':
+            self.advance()
+            while self.current().type == 'NAME':
+                temps.append(self.advance().value)
+            self.expect('BAR')
+        
+        # Record where body starts (after params and temps)
+        body_start = self.current().pos
+        
+        # Parse statements until ]
+        body = []
+        while self.current().type != 'RBRACKET':
+            stmt = self.parse_statement()
+            if stmt:
+                body.append(stmt)
+            if self.current().type == 'DOT':
+                self.advance()
+        
+        end_tok = self.current()
+        body_end = end_tok.pos  # position of ], not including it
+        source_end = end_tok.pos + 1  # include the ]
+        self.expect('RBRACKET')
+        
+        return BlockNode(params, temps, body, body_start, body_end)
 
 # ----------------------------------------------------------------------
 # Code Generator
 # ----------------------------------------------------------------------
 
 class CodeGenerator:
-    def __init__(self):
+    def __init__(self, source: str = ''):
+        self.source = source
         self.tmp_counter = 0
         self.lines = []
         self.temps = set()  # track declared temporaries
         self.params = set()  # track method parameters
         self.inst_vars = set()  # will be populated by context
+        self.block_counter = 0
+        self.extracted_blocks = []  # list of (name, source, bash) tuples
+        self.method_selector = ''  # current method's selector (mangled)
+        self.block_path_stack = []  # for nested blocks: stack of block name suffixes
     
     def new_tmp(self) -> str:
         self.tmp_counter += 1
         return f"tmp{self.tmp_counter}"
     
-    def generate_method(self, node: MethodNode, original_source: str) -> str:
-        """Generate complete Bash method script"""
+    def new_block_name(self) -> str:
+        self.block_counter += 1
+        if self.block_path_stack:
+            return f"~block{self.block_counter}"
+        else:
+            return f"~block{self.block_counter}"
+    
+    def current_block_path(self) -> str:
+        """Return the full block path suffix for nested blocks"""
+        return ''.join(self.block_path_stack)
+    
+    def needs_dollar_prefix(self, var_name: str) -> bool:
+        """Check if a variable reference needs $ prefix in Bash.
+        
+        Returns False for literals (int/, float/), special values (true, false, nil),
+        and global class references (capitalized names).
+        """
+        if var_name.startswith(('int/', 'float/')):
+            return False
+        if var_name in ('true', 'false', 'nil'):
+            return False
+        if var_name and var_name[0].isupper():
+            return False
+        return True
+    
+    def var_ref(self, var_name: str) -> str:
+        """Return the Bash reference for a variable (with or without $)."""
+        if self.needs_dollar_prefix(var_name):
+            return f"${var_name}"
+        return var_name
+    
+    def generate_method(self, node: MethodNode, original_source: str) -> Tuple[str, List[Tuple[str, str]]]:
+        """Generate complete Bash method script.
+        
+        Returns: (main_script, [(block_name, block_script), ...])
+        """
         self.lines = []
         self.temps = set(node.temps)
         self.params = set(node.params)
+        self.method_selector = node.selector.replace(':', '-')
+        self.block_counter = 0
+        self.extracted_blocks = []
+        self.block_path_stack = []
         
         # Include original source verbatim as comments
         for line in original_source.rstrip().split('\n'):
@@ -515,7 +595,8 @@ class CodeGenerator:
             is_last = (i == len(node.body) - 1)
             self.generate_statement(stmt, is_final=is_last)
         
-        return '\n'.join(self.lines)
+        main_script = '\n'.join(self.lines)
+        return (main_script, self.extracted_blocks)
     
     def reconstruct_source(self, node: MethodNode) -> List[str]:
         """Reconstruct original Smalltalk source for comment header"""
@@ -590,7 +671,23 @@ class CodeGenerator:
             return f"^ {self.node_to_source(node.value)}"
         
         elif isinstance(node, BlockNode):
-            return "[ \"block not supported\" ]"
+            parts = ["["]
+            if node.params:
+                for p in node.params:
+                    parts.append(f":{p}")
+                parts.append("|")
+            if node.temps:
+                parts.append("|")
+                parts.extend(node.temps)
+                parts.append("|")
+            for stmt in node.body:
+                parts.append(self.node_to_source(stmt))
+                parts.append(".")
+            # Remove trailing dot
+            if parts[-1] == ".":
+                parts.pop()
+            parts.append("]")
+            return " ".join(parts)
         
         return "???"
     
@@ -611,7 +708,12 @@ class CodeGenerator:
                 self.lines.append(f"echo ${result}")
                 return result
         else:
-            return self.generate_expr(node)
+            if is_final:
+                # Final expression in a block - output directly
+                self.generate_expr_final(node)
+                return None
+            else:
+                return self.generate_expr(node)
     
     def generate_expr_final(self, node: ASTNode) -> None:
         """Generate expression as final statement - output directly without capturing"""
@@ -644,7 +746,12 @@ class CodeGenerator:
         elif isinstance(node, AssignNode):
             # Assignment as final expression - do assignment, then output value
             result = self.generate_expr(node)
-            self.lines.append(f"echo ${result}")
+            self.lines.append(f"echo {self.var_ref(result)}")
+        
+        elif isinstance(node, BlockNode):
+            # Block as final expression - generate block, then output it
+            result = self.generate_block(node)
+            self.lines.append(f"echo {self.var_ref(result)}")
         
         else:
             raise NotImplementedError(f"Unknown node type: {type(node)}")
@@ -662,9 +769,8 @@ class CodeGenerator:
         selector = node.selector.replace(':', '-')
         
         # Build send command - no capture
-        args_str = ' '.join(f"${v}" if not v.startswith(('int/', 'float/', 'true', 'false', 'nil')) else v 
-                           for v in arg_vars)
-        recv_ref = f"${recv_var}" if not recv_var.startswith(('int/', 'float/', 'true', 'false', 'nil')) else recv_var
+        args_str = ' '.join(self.var_ref(v) for v in arg_vars)
+        recv_ref = self.var_ref(recv_var)
         
         if args_str:
             self.lines.append(f"./send {recv_ref} {selector} {args_str}")
@@ -683,9 +789,8 @@ class CodeGenerator:
                 arg_vars.append(self.generate_expr(arg))
             
             selector = selector.replace(':', '-')
-            recv_ref = f"${recv_var}"
-            args_str = ' '.join(f"${v}" if not v.startswith(('int/', 'float/', 'true', 'false', 'nil')) else v
-                               for v in arg_vars)
+            recv_ref = self.var_ref(recv_var)
+            args_str = ' '.join(self.var_ref(v) for v in arg_vars)
             
             if is_last_msg:
                 # Final message - no capture
@@ -726,6 +831,9 @@ class CodeGenerator:
                 return 'nil'
             elif name in self.temps or name in self.params:
                 return name
+            elif name[0].isupper():
+                # Capitalized names are global class references
+                return name
             else:
                 # Instance variable - read from file
                 tmp = self.new_tmp()
@@ -741,10 +849,7 @@ class CodeGenerator:
             else:
                 # Instance variable assignment
                 value_var = self.generate_expr(node.value)
-                if value_var.startswith(('int/', 'float/', 'true', 'false', 'nil')):
-                    self.lines.append(f"echo {value_var} > $self/{name}")
-                else:
-                    self.lines.append(f"echo ${value_var} > $self/{name}")
+                self.lines.append(f"echo {self.var_ref(value_var)} > $self/{name}")
                 return value_var
         
         elif isinstance(node, SendNode):
@@ -754,7 +859,7 @@ class CodeGenerator:
             return self.generate_cascade(node)
         
         elif isinstance(node, BlockNode):
-            raise NotImplementedError("Blocks not yet supported")
+            return self.generate_block(node)
         
         else:
             raise NotImplementedError(f"Unknown node type: {type(node)}")
@@ -778,6 +883,9 @@ class CodeGenerator:
                 self.lines.append(f"{target_var}={name}")
             elif name in self.temps or name in self.params:
                 self.lines.append(f"{target_var}=${name}")
+            elif name[0].isupper():
+                # Capitalized names are global class references
+                self.lines.append(f"{target_var}={name}")
             else:
                 # Instance variable
                 self.lines.append(f"{target_var}=$(cat $self/{name})")
@@ -790,9 +898,8 @@ class CodeGenerator:
                 arg_vars.append(self.generate_expr(arg))
             
             selector = node.selector.replace(':', '-')
-            args_str = ' '.join(f"${v}" if not v.startswith(('int/', 'float/', 'true', 'false', 'nil')) else v 
-                               for v in arg_vars)
-            recv_ref = f"${recv_var}" if not recv_var.startswith(('int/', 'float/', 'true', 'false', 'nil')) else recv_var
+            args_str = ' '.join(self.var_ref(v) for v in arg_vars)
+            recv_ref = self.var_ref(recv_var)
             
             if args_str:
                 self.lines.append(f"{target_var}=$(./send {recv_ref} {selector} {args_str})")
@@ -811,9 +918,8 @@ class CodeGenerator:
                     arg_vars.append(self.generate_expr(arg))
                 
                 selector = selector.replace(':', '-')
-                recv_ref = f"${recv_var}"
-                args_str = ' '.join(f"${v}" if not v.startswith(('int/', 'float/', 'true', 'false', 'nil')) else v
-                                   for v in arg_vars)
+                recv_ref = self.var_ref(recv_var)
+                args_str = ' '.join(self.var_ref(v) for v in arg_vars)
                 
                 if is_last_msg:
                     if args_str:
@@ -830,6 +936,11 @@ class CodeGenerator:
         elif isinstance(node, AssignNode):
             # Nested assignment - do inner assignment, then copy to target
             result = self.generate_expr(node)
+            self.lines.append(f"{target_var}=${result}")
+        
+        elif isinstance(node, BlockNode):
+            # Block - generate it and assign to target
+            result = self.generate_block(node)
             self.lines.append(f"{target_var}=${result}")
         
         else:
@@ -849,9 +960,8 @@ class CodeGenerator:
         
         # Build send command
         tmp = self.new_tmp()
-        args_str = ' '.join(f"${v}" if not v.startswith(('int/', 'float/', 'true', 'false', 'nil')) else v 
-                           for v in arg_vars)
-        recv_ref = f"${recv_var}" if not recv_var.startswith(('int/', 'float/', 'true', 'false', 'nil')) else recv_var
+        args_str = ' '.join(self.var_ref(v) for v in arg_vars)
+        recv_ref = self.var_ref(recv_var)
         
         if args_str:
             self.lines.append(f"{tmp}=$(./send {recv_ref} {selector} {args_str})")
@@ -872,9 +982,8 @@ class CodeGenerator:
             
             selector = selector.replace(':', '-')
             tmp = self.new_tmp()
-            args_str = ' '.join(f"${v}" if not v.startswith(('int/', 'float/', 'true', 'false', 'nil')) else v
-                               for v in arg_vars)
-            recv_ref = f"${recv_var}"
+            args_str = ' '.join(self.var_ref(v) for v in arg_vars)
+            recv_ref = self.var_ref(recv_var)
             
             if args_str:
                 self.lines.append(f"{tmp}=$(./send {recv_ref} {selector} {args_str})")
@@ -884,22 +993,152 @@ class CodeGenerator:
             last_result = tmp
         
         return last_result
+    
+    def generate_block(self, node: BlockNode) -> str:
+        """Generate a block closure.
+        
+        This extracts the block body into a separate method and generates
+        code to create a BlockClosure object capturing the current bindings.
+        """
+        # Generate unique block name
+        self.block_counter += 1
+        block_suffix = self.current_block_path() + f"~block{self.block_counter}"
+        block_method_name = f"{self.method_selector}{block_suffix}"
+        
+        # Determine captured variables: self + outer temps + outer params (excluding self)
+        # (everything currently in scope that isn't the block's own params/temps)
+        captured = ['self']
+        for t in self.temps:
+            if t != 'self' and t not in captured:
+                captured.append(t)
+        for p in self.params:
+            if p != 'self' and p not in captured:
+                captured.append(p)
+        
+        # Build the block method source comment
+        # _method: captured1 and: captured2 ... and: blockParam1 ...
+        block_source_lines = []
+        sig_parts = []
+        all_block_params = captured + node.params
+        for i, name in enumerate(all_block_params):
+            if i == 0:
+                sig_parts.append(f"_method: {name}")
+            else:
+                sig_parts.append(f"and: {name}")
+        sig_line = ' '.join(sig_parts) if sig_parts else "_method"
+        block_source_lines.append(sig_line)
+        
+        # Extract verbatim block body source from original
+        block_body_source = self.source[node.body_start:node.body_end].strip()
+        for line in block_body_source.split('\n'):
+            block_source_lines.append(line)
+        
+        # Generate the block method's bash code
+        block_lines = []
+        for line in block_source_lines:
+            block_lines.append(f"# {line}")
+        block_lines.append("#")
+        
+        # Parameters: captured vars then block params
+        param_index = 1
+        for name in captured:
+            block_lines.append(f"{name}=${param_index}")
+            param_index += 1
+        for name in node.params:
+            block_lines.append(f"{name}=${param_index}")
+            param_index += 1
+        
+        # Generate block body with a new generator context
+        # Save current state
+        old_lines = self.lines
+        old_temps = self.temps
+        old_params = self.params
+        old_tmp_counter = self.tmp_counter
+        
+        # Set up for block body generation
+        self.lines = []
+        self.temps = set(node.temps)
+        self.params = set(captured) | set(node.params)
+        self.tmp_counter = 0
+        
+        # Push onto block path stack for nested blocks
+        self.block_path_stack.append(f"~block{self.block_counter}")
+        
+        # Generate body statements - last one is final (implicit return)
+        for i, stmt in enumerate(node.body):
+            is_last = (i == len(node.body) - 1)
+            self.generate_statement(stmt, is_final=is_last)
+        
+        # Pop block path stack
+        self.block_path_stack.pop()
+        
+        # Collect generated body lines
+        body_lines = self.lines
+        
+        # Restore state
+        self.lines = old_lines
+        self.temps = old_temps
+        self.params = old_params
+        self.tmp_counter = old_tmp_counter
+        
+        # Combine block method
+        block_script = '\n'.join(block_lines + body_lines)
+        
+        # Store extracted block
+        self.extracted_blocks.append((block_method_name, block_script))
+        
+        # Generate code in main method to create the BlockClosure
+        # 1. Create bindings array with captured values
+        num_captured = len(captured)
+        if num_captured == 1:
+            bindings_var = self.new_tmp()
+            self.lines.append(f"{bindings_var}=$(./send Array with- $self)")
+        elif num_captured == 2:
+            bindings_var = self.new_tmp()
+            cap_refs = ' '.join(f"${name}" for name in captured)
+            self.lines.append(f"{bindings_var}=$(./send Array with-with- {cap_refs})")
+        elif num_captured == 3:
+            bindings_var = self.new_tmp()
+            cap_refs = ' '.join(f"${name}" for name in captured)
+            self.lines.append(f"{bindings_var}=$(./send Array with-with-with- {cap_refs})")
+        elif num_captured == 4:
+            bindings_var = self.new_tmp()
+            cap_refs = ' '.join(f"${name}" for name in captured)
+            self.lines.append(f"{bindings_var}=$(./send Array with-with-with-with- {cap_refs})")
+        else:
+            # For more captures, we'd need a different approach
+            # For now, build incrementally
+            bindings_var = self.new_tmp()
+            self.lines.append(f"{bindings_var}=$(./send Array new- int/{num_captured})")
+            for i, name in enumerate(captured, start=1):
+                self.lines.append(f"_=$(./send ${bindings_var} at-put- int/{i} ${name})")
+        
+        # 2. Create BlockClosure
+        # Use directory of current script (blocks are sibling files)
+        self.lines.append("blockDir=${0%/*}")
+        block_var = self.new_tmp()
+        self.lines.append(f"{block_var}=$(./send BlockClosure fromCode-with- $blockDir/{block_method_name} ${bindings_var})")
+        
+        return block_var
 
 # ----------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------
 
-def transpile(source: str) -> str:
-    """Transpile Smalltalk method source to Bash script"""
+def transpile(source: str) -> Tuple[str, List[Tuple[str, str]]]:
+    """Transpile Smalltalk method source to Bash script.
+    
+    Returns: (main_script, [(block_name, block_script), ...])
+    """
     tokens = tokenize(source)
-    parser = Parser(tokens)
+    parser = Parser(tokens, source)
     ast = parser.parse_method()
-    gen = CodeGenerator()
+    gen = CodeGenerator(source)
     return gen.generate_method(ast, source)
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: smalltix_transpiler.py <source_file> [output_file]", file=sys.stderr)
+        print("Usage: smalltix_transpiler.py <source_file> [output_dir]", file=sys.stderr)
         print("       smalltix_transpiler.py -e '<smalltalk source>'", file=sys.stderr)
         sys.exit(1)
     
@@ -908,23 +1147,45 @@ def main():
             print("Error: -e requires source argument", file=sys.stderr)
             sys.exit(1)
         source = sys.argv[2]
+        output_dir = sys.argv[3] if len(sys.argv) > 3 else None
     else:
         with open(sys.argv[1], 'r') as f:
             source = f.read()
+        output_dir = sys.argv[2] if len(sys.argv) > 2 else None
     
     try:
-        result = transpile(source)
+        main_script, blocks = transpile(source)
         
-        if len(sys.argv) > 2 and sys.argv[1] != '-e':
-            with open(sys.argv[2], 'w') as f:
-                f.write(result)
+        if output_dir:
+            import os
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Extract method name from source (first line)
+            first_line = source.strip().split('\n')[0]
+            method_name = first_line.split()[0] if first_line else 'method'
+            method_name = method_name.replace(':', '-')
+            
+            # Write main method
+            main_path = os.path.join(output_dir, method_name)
+            with open(main_path, 'w') as f:
+                f.write(main_script)
                 f.write('\n')
-        elif len(sys.argv) > 3 and sys.argv[1] == '-e':
-            with open(sys.argv[3], 'w') as f:
-                f.write(result)
-                f.write('\n')
+            print(f"Written: {main_path}")
+            
+            # Write block methods
+            for block_name, block_script in blocks:
+                block_path = os.path.join(output_dir, block_name)
+                with open(block_path, 'w') as f:
+                    f.write(block_script)
+                    f.write('\n')
+                print(f"Written: {block_path}")
         else:
-            print(result)
+            # Print to stdout
+            print("=== Main Method ===")
+            print(main_script)
+            for block_name, block_script in blocks:
+                print(f"\n=== Block: {block_name} ===")
+                print(block_script)
     
     except (SyntaxError, NotImplementedError) as e:
         print(f"Error: {e}", file=sys.stderr)

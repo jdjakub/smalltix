@@ -1,8 +1,22 @@
-# _method: topAndBottom and: aCanvas and: each
-# aCanvas fillRectangle: each color: self color
+# _method: self and: topAndBottoms and: topAndBottom2 and: topAndBottom1 and: aCanvas and: eachArray
+# myTemp := 3.
+#         eachArray do: [:each | aCanvas fillRectangle: each color: self color].
+#
 self=$1
-topAndBottom=$2
-aCanvas=$3
-each=$4
-tmp1=$(./send $self color)
-./send $aCanvas fillRectangle-color- $each $tmp1
+topAndBottoms=$2
+topAndBottom2=$3
+topAndBottom1=$4
+aCanvas=$5
+eachArray=$6
+myTemp=int/3
+tmp1=$(./send Array new- int/7)
+_=$(./send $tmp1 at-put- int/1 $self)
+_=$(./send $tmp1 at-put- int/2 $myTemp)
+_=$(./send $tmp1 at-put- int/3 $eachArray)
+_=$(./send $tmp1 at-put- int/4 $topAndBottom2)
+_=$(./send $tmp1 at-put- int/5 $topAndBottoms)
+_=$(./send $tmp1 at-put- int/6 $aCanvas)
+_=$(./send $tmp1 at-put- int/7 $topAndBottom1)
+blockDir=${0%/*}
+tmp2=$(./send BlockClosure fromCode-with- $blockDir/drawOn-~block1~block2 $tmp1)
+./send $eachArray do- $tmp2
