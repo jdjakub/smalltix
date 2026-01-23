@@ -1,0 +1,31 @@
+# containsInstanceOf: aClass
+#     self do: [ :elem | (elem isKindOf: aClass) ifTrue: [^true] ].
+#     ^false
+# block := BlockClosure fromCode: code with: #(pid aClass)
+# self do: block
+
+# code: pid and: aClass and: elem
+#   returnTrueBlock := BlockClosure fromCode: retTrueCode with: #(pid)
+#   (elem isKindOf: aClass) ifTrue: returnTrueBlock
+
+# retTrueCode: pid
+#   <blockReturn: true to: pid>
+
+self=$1
+aClass=$2
+bindings=$(./send Array with- $aClass)
+blockDir=${0%/*}
+block=$(./send BlockClosure fromCode-with- $blockDir/containsInstanceOf-~block1 $bindings)
+
+# Block contains early return; infra needed
+export SMALLTIX_RETURN_FILE="/tmp/smalltix_return_$$"
+
+smalltix_handle_return() {
+  cat $SMALLTIX_RETURN_FILE
+  rm -f "$SMALLTIX_RETURN_FILE"
+  exit 0
+}
+trap 'smalltix_handle_return' ERR
+
+_=$(./send $self do- $block)
+printf false

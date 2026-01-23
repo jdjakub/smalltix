@@ -1,0 +1,4 @@
+# retTrueCode: pid
+#   <blockReturn: true to: pid>
+printf true > $SMALLTIX_RETURN_FILE
+exit 1 # Trigger cascading ERR (-e) in supershells

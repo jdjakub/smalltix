@@ -1,0 +1,13 @@
+# code: pid and: aClass and: elem
+#   returnTrueBlock := BlockClosure fromCode: retTrueCode with: #(pid)
+#   (elem isKindOf: aClass) ifTrue: returnTrueBlock
+aClass=$1
+elem=$2
+bindings=$(./send Array new- int/0)
+blockDir=${0%/*}
+retTrueBlock=$(./send BlockClosure fromCode-with- $blockDir/containsInstanceOf-~block1~block2 $bindings)
+# Optimised and not really isKindOf
+if [[ $(cat $elem/class) == $aClass ]]; then
+  _=$(./send $retTrueBlock value)
+fi
+printf nil

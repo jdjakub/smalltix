@@ -61,9 +61,9 @@ My earlier dummy source code for `drawOn:` included a non-nested block closure:
 
 ```smalltalk
 SBECrossMorph >> drawOn: aCanvas
-    | topAndBottom |
- 	topAndBottom := Array with: (self bounds) with: (Rectangle origin: 0@0 corner: 100@100).
- 	topAndBottom do: [:each | aCanvas fillRectangle: each color: self color].
+  | topAndBottom |
+  topAndBottom := Array with: (self bounds) with: (Rectangle origin: 0@0 corner: 100@100).
+  topAndBottom do: [:each | aCanvas fillRectangle: each color: self color].
 ```
 
 I think my block closure handling is correct. We rewrite the above as:
@@ -105,11 +105,47 @@ rectArray/    <---------------+
   |- _elements = "boundsRect someOtherRect"
 ```
 
+# Early Returns
+
+```smalltalk
+Array >> containsInstanceOf: aClass
+  self do: [ :elem | (elem isKindOf: aClass) ifTrue: [^true] ].
+  ^false
+```
+
+The early return `^true` is inside a block inside a block. Here's what we do. Create the block as above. Then, before the `do:` send, we need this:
+
+```bash
+# Block contains early return; infra needed
+# Export file path to all descendants
+export SMALLTIX_RETURN_FILE="/tmp/smalltix_return_$$"
+
+smalltix_handle_return() {
+  cat $SMALLTIX_RETURN_FILE
+  rm -f "$SMALLTIX_RETURN_FILE"
+  exit 0
+}
+trap 'smalltix_handle_return' ERR
+
+_=$(./send $self do- $block)
+printf false
+```
+
+The code for the outer block is compiled normally; it needn't concern itself with the early return at all. The code for the inner block looks like this:
+
+```bash
+printf true > $SMALLTIX_RETURN_FILE
+exit 1 # Trigger cascading ERR (-e) in supershells
+```
+
+It should have inherited the env var from the export, which will be a path to the return file for the method activation's PID (e.g. `/tmp/smalltix_return_1234`). It writes the return value `true` to the file, and exits with an error value. The enclosing `$(...)` supershell, which should have inherited `set -e` (`set -e` and `export SHELLOPTS` in `./send` is essential for this), will see this error and propagate it all the way up immediately, eventually running into the `ERR` handler in the method. This will `cat` the return value from the file to stdout, "returning" it in Smalltix at the correct point, delete the file, and exit successfully with 0 (so as to not trigger further `ERR`s). TODO: must gracefully handle REAL "errors" that don't write to the return file
+
+Try `./send anArray containsInstanceOf- Rectangle` or `./send anArray containsInstanceOf- Roctongal`.
+
 # Implementation notes
 All objects have an inst var `class`. An underscore e.g. `_elements` means it's not really an instance variable whose contents conforms to Smalltix conventions; i.e. its contents might not be an object reference. (For example, `anArray/_elements` is a space-separated list of references.) `_code` is underscored to be safe because, while I ought to treat an executable file like a method object, I don't have that working yet.
 
 # ST2bash
 Check out the Smalltalk-to-Bash compiler generated for me by Claude Opus. Currently it should be able to match all my hand-compiled examples. It's currently motivating the following questions:
 
-- How to do early returns from blocks?
 - How to represent references to string literals?

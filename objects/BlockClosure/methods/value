@@ -1,0 +1,6 @@
+# BlockClosure >> value
+self=$1
+bindingsArray=$(cat $self/bindings)
+bindings=$(cat $bindingsArray/_elements) # naughty - private access
+codePath=$(cat $self/_code)
+$codePath $bindings

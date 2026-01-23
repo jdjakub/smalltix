@@ -2,6 +2,7 @@
 self=$1
 howMany=${2##*/}
 newObj=$(./send $self basicNew)
+touch $newObj/_elements # in case howMany=0
 for ((i=$howMany; i>0; i--)); do
   printf 'nil ' >> $newObj/_elements
 done

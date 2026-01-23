@@ -1,4 +1,6 @@
-set -xeuo pipefail
+set -euo pipefail
+export SHELLOPTS
+set -x # debugging on
 recv=$1
 selector=$2
 shift 2
