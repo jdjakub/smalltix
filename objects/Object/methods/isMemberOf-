@@ -1,0 +1,9 @@
+# isMemberOf: aClass
+self=$1
+aClassName=$2
+myClass=$(cat $self/class)
+if [[ $myClass == $aClassName ]]; then
+  printf true
+else
+  printf false
+fi

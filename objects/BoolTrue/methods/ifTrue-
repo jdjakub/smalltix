@@ -1,0 +1,2 @@
+aBlock=$2
+./send $aBlock value

@@ -1,6 +1,8 @@
 set -euo pipefail
 export SHELLOPTS
-set -x # debugging on
+if [[ -v DEBUG ]]; then
+    set -x # debugging on
+fi
 recv=$1
 selector=$2
 shift 2

@@ -121,11 +121,16 @@ The early return `^true` is inside a block inside a block. Here's what we do. Cr
 export SMALLTIX_RETURN_FILE="/tmp/smalltix_return_$$"
 
 smalltix_handle_return() {
-  cat $SMALLTIX_RETURN_FILE
-  rm -f "$SMALLTIX_RETURN_FILE"
-  exit 0
+  if [[ -s $SMALLTIX_RETURN_FILE ]]; then
+    cat $SMALLTIX_RETURN_FILE
+    rm -f "$SMALLTIX_RETURN_FILE"
+    exit 0
+  else
+    exit 2
+  fi
 }
 trap 'smalltix_handle_return' ERR
+trap 'rm -f "$SMALLTIX_RETURN_FILE"' EXIT
 
 _=$(./send $self do- $block)
 printf false
@@ -138,12 +143,14 @@ printf true > $SMALLTIX_RETURN_FILE
 exit 1 # Trigger cascading ERR (-e) in supershells
 ```
 
-It should have inherited the env var from the export, which will be a path to the return file for the method activation's PID (e.g. `/tmp/smalltix_return_1234`). It writes the return value `true` to the file, and exits with an error value. The enclosing `$(...)` supershell, which should have inherited `set -e` (`set -e` and `export SHELLOPTS` in `./send` is essential for this), will see this error and propagate it all the way up immediately, eventually running into the `ERR` handler in the method. This will `cat` the return value from the file to stdout, "returning" it in Smalltix at the correct point, delete the file, and exit successfully with 0 (so as to not trigger further `ERR`s). TODO: must gracefully handle REAL "errors" that don't write to the return file
+It should have inherited the env var from the export, which will be a path to the return file for the method activation's PID (e.g. `/tmp/smalltix_return_1234`). It writes the return value `true` to the file, and exits with an error value. The enclosing `$(...)` supershell, which should have inherited `set -e` (`set -e` and `export SHELLOPTS` in `./send` is essential for this), will see this error and propagate it all the way up immediately, eventually running into the `ERR` handler in the method. This will `cat` the return value from the file to stdout, "returning" it in Smalltix at the correct point, delete the file, and exit successfully with 0 (so as to not trigger further `ERR`s). If some "real" shell script error happened, I assume the return file didn't get written (not watertight, I know) and cascade the error as code 2 (ensuring the entire send tree back to the root blows up). Finally, if nobody did an early return after all, the return file will be deleted on exit.
 
 Try `./send anArray containsInstanceOf- Rectangle` or `./send anArray containsInstanceOf- Roctongal`.
 
 # Implementation notes
 All objects have an inst var `class`. An underscore e.g. `_elements` means it's not really an instance variable whose contents conforms to Smalltix conventions; i.e. its contents might not be an object reference. (For example, `anArray/_elements` is a space-separated list of references.) `_code` is underscored to be safe because, while I ought to treat an executable file like a method object, I don't have that working yet.
+
+`true` is a `BoolTrue` and `false` is a `BoolFalse` because Windows filenames are case insensitive 🙃
 
 # ST2bash
 Check out the Smalltalk-to-Bash compiler generated for me by Claude Opus. Currently it should be able to match all my hand-compiled examples. It's currently motivating the following questions:

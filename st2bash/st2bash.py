@@ -232,6 +232,7 @@ class BlockNode(ASTNode):
     body: List[ASTNode]
     body_start: int = 0  # position of first body token in source
     body_end: int = 0    # position of ']' in source
+    has_early_return: bool = False  # True if block contains ^
 
 @dataclass
 class MethodNode(ASTNode):
@@ -511,7 +512,30 @@ class Parser:
         source_end = end_tok.pos + 1  # include the ]
         self.expect('RBRACKET')
         
-        return BlockNode(params, temps, body, body_start, body_end)
+        # Check if block body contains an early return
+        has_early_return = self._contains_return(body)
+        
+        return BlockNode(params, temps, body, body_start, body_end, has_early_return)
+    
+    def _contains_return(self, nodes: List[ASTNode]) -> bool:
+        """Check if any node in the list is or contains a ReturnNode."""
+        for node in nodes:
+            if isinstance(node, ReturnNode):
+                return True
+            elif isinstance(node, SendNode):
+                if self._contains_return(node.args):
+                    return True
+            elif isinstance(node, AssignNode):
+                if self._contains_return([node.value]):
+                    return True
+            elif isinstance(node, CascadeNode):
+                for _, args in node.messages:
+                    if self._contains_return(args):
+                        return True
+            elif isinstance(node, BlockNode):
+                # Don't recurse into nested blocks - their returns are their own
+                pass
+        return False
 
 # ----------------------------------------------------------------------
 # Code Generator
@@ -529,6 +553,8 @@ class CodeGenerator:
         self.extracted_blocks = []  # list of (name, source, bash) tuples
         self.method_selector = ''  # current method's selector (mangled)
         self.block_path_stack = []  # for nested blocks: stack of block name suffixes
+        self.in_block = False  # True when generating code inside a block
+        self.method_has_early_return = False  # True if any block has early return
     
     def new_tmp(self) -> str:
         self.tmp_counter += 1
@@ -565,6 +591,39 @@ class CodeGenerator:
             return f"${var_name}"
         return var_name
     
+    def _method_contains_early_return(self, body: List[ASTNode]) -> bool:
+        """Check if any block in the method body contains an early return."""
+        for node in body:
+            if self._node_has_early_return_block(node):
+                return True
+        return False
+    
+    def _node_has_early_return_block(self, node: ASTNode) -> bool:
+        """Recursively check if a node contains a block with an early return."""
+        if isinstance(node, BlockNode):
+            if node.has_early_return:
+                return True
+            # Also check nested blocks within this block's body
+            for stmt in node.body:
+                if self._node_has_early_return_block(stmt):
+                    return True
+        elif isinstance(node, SendNode):
+            for arg in node.args:
+                if self._node_has_early_return_block(arg):
+                    return True
+        elif isinstance(node, AssignNode):
+            if self._node_has_early_return_block(node.value):
+                return True
+        elif isinstance(node, CascadeNode):
+            for _, args in node.messages:
+                for arg in args:
+                    if self._node_has_early_return_block(arg):
+                        return True
+        elif isinstance(node, ReturnNode):
+            if self._node_has_early_return_block(node.value):
+                return True
+        return False
+    
     def generate_method(self, node: MethodNode, original_source: str) -> Tuple[str, List[Tuple[str, str]]]:
         """Generate complete Bash method script.
         
@@ -577,6 +636,10 @@ class CodeGenerator:
         self.block_counter = 0
         self.extracted_blocks = []
         self.block_path_stack = []
+        self.in_block = False
+        
+        # Check if any block in this method has an early return
+        self.method_has_early_return = self._method_contains_early_return(node.body)
         
         # Include original source verbatim as comments
         for line in original_source.rstrip().split('\n'):
@@ -589,6 +652,25 @@ class CodeGenerator:
         # Parameters: param1=$2, param2=$3, etc.
         for i, param in enumerate(node.params, start=2):
             self.lines.append(f"{param}=${i}")
+        
+        # If any block has early return, emit infrastructure
+        if self.method_has_early_return:
+            self.lines.append("")
+            self.lines.append("# Early return infrastructure")
+            self.lines.append('export SMALLTIX_RETURN_FILE="/tmp/smalltix_return_$$"')
+            self.lines.append("")
+            self.lines.append("smalltix_handle_return() {")
+            self.lines.append("    if [[ -s $SMALLTIX_RETURN_FILE ]]; then")
+            self.lines.append("        cat $SMALLTIX_RETURN_FILE")
+            self.lines.append('        rm -f "$SMALLTIX_RETURN_FILE"')
+            self.lines.append("        exit 0")
+            self.lines.append("    else")
+            self.lines.append("        exit 2")
+            self.lines.append("    fi")
+            self.lines.append("}")
+            self.lines.append("trap 'smalltix_handle_return' ERR")
+            self.lines.append('trap \'rm -f "$SMALLTIX_RETURN_FILE"\' EXIT')
+            self.lines.append("")
         
         # Generate body - handle final return specially for optimization
         for i, stmt in enumerate(node.body):
@@ -699,13 +781,19 @@ class CodeGenerator:
     def generate_statement(self, node: ASTNode, is_final: bool = False) -> str:
         """Generate code for a statement, return the variable holding result"""
         if isinstance(node, ReturnNode):
-            if is_final:
+            if self.in_block:
+                # Early return from block - write to return file and exit
+                result = self.generate_expr(node.value)
+                self.lines.append(f"printf {self.var_ref(result)} > $SMALLTIX_RETURN_FILE")
+                self.lines.append("exit 1")
+                return None
+            elif is_final:
                 # Optimization: final return doesn't need tmp+echo
                 self.generate_expr_final(node.value)
                 return None
             else:
                 result = self.generate_expr(node.value)
-                self.lines.append(f"echo ${result}")
+                self.lines.append(f"echo {self.var_ref(result)}")
                 return result
         else:
             if is_final:
@@ -1054,12 +1142,14 @@ class CodeGenerator:
         old_temps = self.temps
         old_params = self.params
         old_tmp_counter = self.tmp_counter
+        old_in_block = self.in_block
         
         # Set up for block body generation
         self.lines = []
         self.temps = set(node.temps)
         self.params = set(captured) | set(node.params)
         self.tmp_counter = 0
+        self.in_block = True  # We're now generating code inside a block
         
         # Push onto block path stack for nested blocks
         self.block_path_stack.append(f"~block{self.block_counter}")
@@ -1080,6 +1170,7 @@ class CodeGenerator:
         self.temps = old_temps
         self.params = old_params
         self.tmp_counter = old_tmp_counter
+        self.in_block = old_in_block
         
         # Combine block method
         block_script = '\n'.join(block_lines + body_lines)

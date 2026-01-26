@@ -1,31 +1,27 @@
 # containsInstanceOf: aClass
-#     self do: [ :elem | (elem isKindOf: aClass) ifTrue: [^true] ].
+#     self do: [ :elem | (elem isMemberOf: aClass) ifTrue: [^true] ].
 #     ^false
-# block := BlockClosure fromCode: code with: #(pid aClass)
-# self do: block
-
-# code: pid and: aClass and: elem
-#   returnTrueBlock := BlockClosure fromCode: retTrueCode with: #(pid)
-#   (elem isKindOf: aClass) ifTrue: returnTrueBlock
-
-# retTrueCode: pid
-#   <blockReturn: true to: pid>
-
+#
 self=$1
 aClass=$2
-bindings=$(./send Array with- $aClass)
-blockDir=${0%/*}
-block=$(./send BlockClosure fromCode-with- $blockDir/containsInstanceOf-~block1 $bindings)
 
-# Block contains early return; infra needed
+# Early return infrastructure
 export SMALLTIX_RETURN_FILE="/tmp/smalltix_return_$$"
 
 smalltix_handle_return() {
-  cat $SMALLTIX_RETURN_FILE
-  rm -f "$SMALLTIX_RETURN_FILE"
-  exit 0
+    if [[ -s $SMALLTIX_RETURN_FILE ]]; then
+        cat $SMALLTIX_RETURN_FILE
+        rm -f "$SMALLTIX_RETURN_FILE"
+        exit 0
+    else
+        exit 2
+    fi
 }
 trap 'smalltix_handle_return' ERR
+trap 'rm -f "$SMALLTIX_RETURN_FILE"' EXIT
 
-_=$(./send $self do- $block)
-printf false
+tmp1=$(./send Array with-with- $self $aClass)
+blockDir=${0%/*}
+tmp2=$(./send BlockClosure fromCode-with- $blockDir/containsInstanceOf-~block1 $tmp1)
+tmp3=$(./send $self do- $tmp2)
+echo false

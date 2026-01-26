@@ -1,13 +1,11 @@
-# code: pid and: aClass and: elem
-#   returnTrueBlock := BlockClosure fromCode: retTrueCode with: #(pid)
-#   (elem isKindOf: aClass) ifTrue: returnTrueBlock
-aClass=$1
-elem=$2
-bindings=$(./send Array new- int/0)
+# _method: self and: aClass and: elem
+# (elem isMemberOf: aClass) ifTrue: [^true]
+#
+self=$1
+aClass=$2
+elem=$3
+tmp1=$(./send $elem isMemberOf- $aClass)
+tmp2=$(./send Array with-with-with- $self $elem $aClass)
 blockDir=${0%/*}
-retTrueBlock=$(./send BlockClosure fromCode-with- $blockDir/containsInstanceOf-~block1~block2 $bindings)
-# Optimised and not really isKindOf
-if [[ $(cat $elem/class) == $aClass ]]; then
-  _=$(./send $retTrueBlock value)
-fi
-printf nil
+tmp3=$(./send BlockClosure fromCode-with- $blockDir/containsInstanceOf-~block1~block2 $tmp2)
+./send $tmp1 ifTrue- $tmp3

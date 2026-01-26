@@ -1,4 +1,8 @@
-# retTrueCode: pid
-#   <blockReturn: true to: pid>
+# _method: self and: elem and: aClass
+# ^true
+#
+self=$1
+elem=$2
+aClass=$3
 printf true > $SMALLTIX_RETURN_FILE
-exit 1 # Trigger cascading ERR (-e) in supershells
+exit 1
