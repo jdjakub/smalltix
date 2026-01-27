@@ -20,7 +20,7 @@ smalltix_handle_return() {
 trap 'smalltix_handle_return' ERR
 trap 'rm -f "$SMALLTIX_RETURN_FILE"' EXIT
 
-tmp1=$(./send Array with-with- $self $aClass)
+tmp1=$(./send Array with- $aClass)
 blockDir=${0%/*}
 tmp2=$(./send BlockClosure fromCode-with- $blockDir/containsInstanceOf-~block1 $tmp1)
 tmp3=$(./send $self do- $tmp2)

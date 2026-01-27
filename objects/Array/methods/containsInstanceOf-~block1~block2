@@ -1,8 +1,5 @@
-# _method: self and: elem and: aClass
+# _method
 # ^true
 #
-self=$1
-elem=$2
-aClass=$3
 printf true > $SMALLTIX_RETURN_FILE
 exit 1

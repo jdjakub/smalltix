@@ -22,12 +22,7 @@ tmp7=$(./send int/200 @ int/200)
 tmp8=$(./send Rectangle origin-corner- $tmp6 $tmp7)
 topAndBottom2=$(./send Array with-with- $tmp5 $tmp8)
 topAndBottoms=$(./send Array with-with- $topAndBottom1 $topAndBottom2)
-tmp9=$(./send Array new- int/5)
-_=$(./send $tmp9 at-put- int/1 $self)
-_=$(./send $tmp9 at-put- int/2 $topAndBottoms)
-_=$(./send $tmp9 at-put- int/3 $topAndBottom2)
-_=$(./send $tmp9 at-put- int/4 $topAndBottom1)
-_=$(./send $tmp9 at-put- int/5 $aCanvas)
+tmp9=$(./send Array with-with- $self $aCanvas)
 blockDir=${0%/*}
 tmp10=$(./send BlockClosure fromCode-with- $blockDir/drawOn-~block1 $tmp9)
 ./send $topAndBottoms do- $tmp10

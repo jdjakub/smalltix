@@ -1,0 +1,5 @@
+# Array >> new
+self=$1
+newObj=$(./send $self basicNew)
+touch $newObj/_elements
+printf $newObj

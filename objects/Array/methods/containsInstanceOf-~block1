@@ -1,11 +1,10 @@
-# _method: self and: aClass and: elem
+# _method: aClass and: elem
 # (elem isMemberOf: aClass) ifTrue: [^true]
 #
-self=$1
-aClass=$2
-elem=$3
+aClass=$1
+elem=$2
 tmp1=$(./send $elem isMemberOf- $aClass)
-tmp2=$(./send Array with-with-with- $self $elem $aClass)
+tmp2=$(./send Array new)
 blockDir=${0%/*}
 tmp3=$(./send BlockClosure fromCode-with- $blockDir/containsInstanceOf-~block1~block2 $tmp2)
 ./send $tmp1 ifTrue- $tmp3

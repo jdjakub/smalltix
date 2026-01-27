@@ -1082,6 +1082,37 @@ class CodeGenerator:
         
         return last_result
     
+    def _collect_referenced_names(self, nodes: List[ASTNode]) -> Set[str]:
+        """Collect all variable names referenced in a list of AST nodes, including nested blocks."""
+        names = set()
+        for node in nodes:
+            self._collect_names_from_node(node, names)
+        return names
+    
+    def _collect_names_from_node(self, node: ASTNode, names: Set[str]) -> None:
+        """Recursively collect variable names from an AST node."""
+        if isinstance(node, VariableNode):
+            names.add(node.name)
+        elif isinstance(node, AssignNode):
+            names.add(node.name)
+            self._collect_names_from_node(node.value, names)
+        elif isinstance(node, SendNode):
+            self._collect_names_from_node(node.receiver, names)
+            for arg in node.args:
+                self._collect_names_from_node(arg, names)
+        elif isinstance(node, CascadeNode):
+            self._collect_names_from_node(node.receiver, names)
+            for _, args in node.messages:
+                for arg in args:
+                    self._collect_names_from_node(arg, names)
+        elif isinstance(node, ReturnNode):
+            self._collect_names_from_node(node.value, names)
+        elif isinstance(node, BlockNode):
+            # Recurse into nested block bodies - they may need outer captures
+            for stmt in node.body:
+                self._collect_names_from_node(stmt, names)
+        # LiteralNode has no variable references
+    
     def generate_block(self, node: BlockNode) -> str:
         """Generate a block closure.
         
@@ -1093,15 +1124,23 @@ class CodeGenerator:
         block_suffix = self.current_block_path() + f"~block{self.block_counter}"
         block_method_name = f"{self.method_selector}{block_suffix}"
         
-        # Determine captured variables: self + outer temps + outer params (excluding self)
-        # (everything currently in scope that isn't the block's own params/temps)
-        captured = ['self']
+        # Collect all variable names referenced in the block body (including nested blocks)
+        referenced = self._collect_referenced_names(node.body)
+        
+        # Determine captured variables: only include names that are actually used
+        # and are from outer scope (temps or params), not the block's own params/temps
+        block_own_names = set(node.params) | set(node.temps)
+        potential_captures = ['self']
         for t in self.temps:
-            if t != 'self' and t not in captured:
-                captured.append(t)
+            if t != 'self' and t not in potential_captures:
+                potential_captures.append(t)
         for p in self.params:
-            if p != 'self' and p not in captured:
-                captured.append(p)
+            if p != 'self' and p not in potential_captures:
+                potential_captures.append(p)
+        
+        # Filter to only actually referenced names (that aren't block's own params/temps)
+        captured = [name for name in potential_captures 
+                    if name in referenced and name not in block_own_names]
         
         # Build the block method source comment
         # _method: captured1 and: captured2 ... and: blockParam1 ...
@@ -1181,9 +1220,13 @@ class CodeGenerator:
         # Generate code in main method to create the BlockClosure
         # 1. Create bindings array with captured values
         num_captured = len(captured)
-        if num_captured == 1:
+        if num_captured == 0:
             bindings_var = self.new_tmp()
-            self.lines.append(f"{bindings_var}=$(./send Array with- $self)")
+            self.lines.append(f"{bindings_var}=$(./send Array new)")
+        elif num_captured == 1:
+            bindings_var = self.new_tmp()
+            cap_refs = ' '.join(f"${name}" for name in captured)
+            self.lines.append(f"{bindings_var}=$(./send Array with- {cap_refs})")
         elif num_captured == 2:
             bindings_var = self.new_tmp()
             cap_refs = ' '.join(f"${name}" for name in captured)
@@ -1197,8 +1240,7 @@ class CodeGenerator:
             cap_refs = ' '.join(f"${name}" for name in captured)
             self.lines.append(f"{bindings_var}=$(./send Array with-with-with-with- {cap_refs})")
         else:
-            # For more captures, we'd need a different approach
-            # For now, build incrementally
+            # For more captures, build incrementally
             bindings_var = self.new_tmp()
             self.lines.append(f"{bindings_var}=$(./send Array new- int/{num_captured})")
             for i, name in enumerate(captured, start=1):
