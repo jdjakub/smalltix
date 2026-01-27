@@ -1,0 +1,9 @@
+self=$1
+origin=$(cat $self/origin)
+corner=$(cat $self/corner)
+# HACK private Point access; must do properly in future
+ox=$(cat $origin/x)
+oy=$(cat $origin/y)
+cx=$(cat $corner/x)
+cy=$(cat $corner/y)
+echo 1>&2 "${ox##*/} @ ${oy##*/} corner: ${cx##*/} @ ${cy##*/}"

@@ -11,8 +11,8 @@ fi
 objName=${prefix}${selfClass}_${objCounter}
 objPath=_new/$objName # TODO: maybe somewhere in /tmp
 mkdir $objPath
-printf $selfClass > $objPath/class
+echo $selfClass > $objPath/class
 # Naughty - should really be Object/objCounter := Object/objCounter + 1
-# printf $(./send Object/objCounter + int/1) > Object/objCounter
-printf int/$((objCounter + 1)) > Object/objCounter
-printf $objPath
+# echo $(./send Object/objCounter + int/1) > Object/objCounter
+echo int/$((objCounter + 1)) > Object/objCounter
+echo $objPath

@@ -12,4 +12,4 @@ _=$(./send $newCollection at-put- int/1 $2)
 _=$(./send $newCollection at-put- int/2 $3)
 _=$(./send $newCollection at-put- int/3 $4)
 _=$(./send $newCollection at-put- int/4 $4)
-printf $newCollection
+echo $newCollection

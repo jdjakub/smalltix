@@ -1,5 +1,5 @@
 # _method
 # ^true
 #
-printf true > $SMALLTIX_RETURN_FILE
+echo true > $SMALLTIX_RETURN_FILE
 exit 1

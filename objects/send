@@ -13,9 +13,9 @@ args="$@"
 with_leading_zero() {
     local str=$1
     if [[ ${str:0:1} == "." ]]; then
-        printf float/0$str
+        echo float/0$str
     else
-        printf float/$str
+        echo float/$str
     fi
 }
 
@@ -29,7 +29,7 @@ if [[ $recv_tag == "int" || $recv_tag == "float" ]]; then
         arg_tag=${1%/*}
         arg_num=${1##*/}
         if [[ $recv_tag == "int" && $arg_tag == "int" ]]; then
-            printf int/$(( $recv_num $selector $arg_num ))
+            echo int/$(( $recv_num $selector $arg_num ))
         else
             with_leading_zero $(bc -l <<< "$recv_num $selector $arg_num")
         fi
@@ -37,7 +37,7 @@ if [[ $recv_tag == "int" || $recv_tag == "float" ]]; then
     *)
         if [[ $selector == "rounded" ]]; then
             if [[ $recv_tag == "int" ]]; then
-                printf $recv
+                echo $recv
             else
                 with_leading_zero $(bc <<< "($recv_num+0.5)/1")
             fi

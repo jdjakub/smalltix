@@ -11,4 +11,4 @@ obj2=$3
 newCollection=$(./send $self new- int/2)
 _=$(./send $newCollection at-put- int/1 $obj1)
 _=$(./send $newCollection at-put- int/2 $obj2)
-printf $newCollection
+echo $newCollection

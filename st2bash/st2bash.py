@@ -784,7 +784,7 @@ class CodeGenerator:
             if self.in_block:
                 # Early return from block - write to return file and exit
                 result = self.generate_expr(node.value)
-                self.lines.append(f"printf {self.var_ref(result)} > $SMALLTIX_RETURN_FILE")
+                self.lines.append(f"echo {self.var_ref(result)} > $SMALLTIX_RETURN_FILE")
                 self.lines.append("exit 1")
                 return None
             elif is_final:
@@ -1220,28 +1220,21 @@ class CodeGenerator:
         # Generate code in main method to create the BlockClosure
         # 1. Create bindings array with captured values
         num_captured = len(captured)
+        bindings_var = self.new_tmp()
+        if 1 <= num_captured <= 4:
+            cap_refs = ' '.join(f"${name}" for name in captured)
         if num_captured == 0:
-            bindings_var = self.new_tmp()
             self.lines.append(f"{bindings_var}=$(./send Array new)")
         elif num_captured == 1:
-            bindings_var = self.new_tmp()
-            cap_refs = ' '.join(f"${name}" for name in captured)
             self.lines.append(f"{bindings_var}=$(./send Array with- {cap_refs})")
         elif num_captured == 2:
-            bindings_var = self.new_tmp()
-            cap_refs = ' '.join(f"${name}" for name in captured)
             self.lines.append(f"{bindings_var}=$(./send Array with-with- {cap_refs})")
         elif num_captured == 3:
-            bindings_var = self.new_tmp()
-            cap_refs = ' '.join(f"${name}" for name in captured)
             self.lines.append(f"{bindings_var}=$(./send Array with-with-with- {cap_refs})")
         elif num_captured == 4:
-            bindings_var = self.new_tmp()
-            cap_refs = ' '.join(f"${name}" for name in captured)
             self.lines.append(f"{bindings_var}=$(./send Array with-with-with-with- {cap_refs})")
         else:
             # For more captures, build incrementally
-            bindings_var = self.new_tmp()
             self.lines.append(f"{bindings_var}=$(./send Array new- int/{num_captured})")
             for i, name in enumerate(captured, start=1):
                 self.lines.append(f"_=$(./send ${bindings_var} at-put- int/{i} ${name})")

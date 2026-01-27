@@ -8,4 +8,4 @@ self=$1
 theElement=$2
 newCollection=$(./send $self new- int/1)
 _=$(./send $newCollection at-put- int/1 $theElement)
-printf $newCollection
+echo $newCollection

@@ -8,4 +8,4 @@ fi
 while [[ ! -e $class/methods/$selector ]]; do
   class=$(cat $class/superclass)
 done
-printf $class/methods/$selector
+echo $class/methods/$selector

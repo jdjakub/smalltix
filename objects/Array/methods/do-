@@ -5,4 +5,4 @@ elements=$(cat $self/_elements)
 for elem in $elements; do
   output=$(./send $theBlock value- $elem)
 done
-printf $output
+echo $output

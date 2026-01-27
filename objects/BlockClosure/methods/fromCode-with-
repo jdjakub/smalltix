@@ -6,7 +6,7 @@
 self=$1
 codePath=$2
 theNewBlock=$(./send $self basicNew)
-printf $codePath > $theNewBlock/_code
+echo $codePath > $theNewBlock/_code
 bindingsArray=$3
-printf $bindingsArray > $theNewBlock/bindings
-printf $theNewBlock
+echo $bindingsArray > $theNewBlock/bindings
+echo $theNewBlock

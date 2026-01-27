@@ -3,7 +3,7 @@ self=$1
 aClassName=$2
 myClass=$(cat $self/class)
 if [[ $myClass == $aClassName ]]; then
-  printf true
+  echo true
 else
-  printf false
+  echo false
 fi

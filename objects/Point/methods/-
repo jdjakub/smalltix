@@ -8,4 +8,4 @@ argy=$(./send $arg y)
 tmp1=$(./send $x - $argx)
 tmp2=$(./send $y - $argy)
 newPt=$(./send $tmp1 @ $tmp2)
-printf $newPt
+echo $newPt
