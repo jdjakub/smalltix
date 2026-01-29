@@ -1,0 +1,8 @@
+# _method: self and: aCanvas and: each
+# aCanvas fillRectangle: each color: self color
+#
+self=$1
+aCanvas=$2
+each=$3
+tmp1=$(./send $self color)
+./send $aCanvas fillRectangle-color- $each $tmp1

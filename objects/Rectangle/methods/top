@@ -1,0 +1,3 @@
+self=$1
+origin=$(./send $self origin)
+./send $origin y

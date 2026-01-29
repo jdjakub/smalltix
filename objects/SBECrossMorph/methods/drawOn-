@@ -1,28 +1,14 @@
 # drawOn: aCanvas
-#     | topAndBottom1 topAndBottom2 topAndBottoms |
-#  	topAndBottom1 := Array with: (self bounds) with: (Rectangle origin: 0@0 corner: 100@100).
-#     topAndBottom2 := Array with: (self bounds) with: (Rectangle origin: 100@100 corner: 200@200).
-#     topAndBottoms := Array with: topAndBottom1 with: topAndBottom2.
-#  	topAndBottoms do: [:eachArray |
-#         | myTemp |
-#         myTemp := 3.
-#         eachArray do: [:each | aCanvas fillRectangle: each color: self color].
-#     ].
+#   (Array with: self horBar with: self verBar) do: [ :rect |
+#     aCanvas fillRectangle: rect color: self color.
+#     ]
 #
 self=$1
 aCanvas=$2
-tmp1=$(./send $self bounds)
-tmp2=$(./send int/0 @ int/0)
-tmp3=$(./send int/100 @ int/100)
-tmp4=$(./send Rectangle origin-corner- $tmp2 $tmp3)
-topAndBottom1=$(./send Array with-with- $tmp1 $tmp4)
-tmp5=$(./send $self bounds)
-tmp6=$(./send int/100 @ int/100)
-tmp7=$(./send int/200 @ int/200)
-tmp8=$(./send Rectangle origin-corner- $tmp6 $tmp7)
-topAndBottom2=$(./send Array with-with- $tmp5 $tmp8)
-topAndBottoms=$(./send Array with-with- $topAndBottom1 $topAndBottom2)
-tmp9=$(./send Array with-with- $self $aCanvas)
+tmp1=$(./send $self horBar)
+tmp2=$(./send $self verBar)
+tmp3=$(./send Array with-with- $tmp1 $tmp2)
+tmp4=$(./send Array with-with- $self $aCanvas)
 blockDir=${0%/*}
-tmp10=$(./send BlockClosure fromCode-with- $blockDir/drawOn-~block1 $tmp9)
-./send $topAndBottoms do- $tmp10
+tmp5=$(./send BlockClosure fromCode-with- $blockDir/drawOn-~block1 $tmp4)
+./send $tmp3 do- $tmp5

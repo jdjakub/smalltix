@@ -1,0 +1,12 @@
+# _method: self and: aCanvas and: eachArray
+# myTemp := 3.
+#         eachArray do: [:each | aCanvas fillRectangle: each color: self color].
+#
+self=$1
+aCanvas=$2
+eachArray=$3
+myTemp=int/3
+tmp1=$(./send Array with-with- $self $aCanvas)
+blockDir=${0%/*}
+tmp2=$(./send BlockClosure fromCode-with- $blockDir/drawOnMessy-~block1~block2 $tmp1)
+./send $eachArray do- $tmp2

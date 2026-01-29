@@ -1,10 +1,15 @@
-Works on Windows WSL Ubuntu, because colons in message names get mangled to dash: e.g. `doSomethingWith:and:andAlso:` becomes `doSomethingWith-and-andAlso-`. Requires `bc` for bash arithmetic:
+Works on Windows WSL Ubuntu, because colons in message names get mangled to dash: e.g. `doSomethingWith:and:andAlso:` becomes `doSomethingWith-and-andAlso-`.
+
+# Install requirements
+Requires `bc` for bash arithmetic:
 
 ```bash
 sudo apt install bc
 ```
 
-Examples: `SBECrossMorph` from Squeak By Example 6.0.
+st2bash Compiler and websocket canvas require python3.
+
+Examples center around `SBECrossMorph` from Squeak By Example 6.0.
 
 # Simple Send Example
 
@@ -18,10 +23,56 @@ It should be among 4 new objects (directories) created.
 
 Two are its points, one was a temporary point that ought to be garbage collected. (I suggest "Move to Recycle Bin"...)
 
+Note: to enable thorough `set -x` tracing in the Bash scripts (e.g. to debug an error), set `DEBUG`:
+
+```bash
+DEBUG=t ./send aCross horBar
+```
+
+# Drawing via WebSocket Canvas Example
+Setup: `pip install websockets`.
+
+Start server: `web-canvas/server.py`
+
+Open the client `web-canvas/smalltix.html` in a web browser. Should say `Connected to WebSocket server` in the JS console.
+
+`aCanvas` is a `WebCanvas`.
+- Connect canvas: `./send aCanvas connect`
+- Draw: `./send aCross drawOn- aCanvas`
+- Sometime later, disconnect (to kill the forwarder process in `aCanvas/_wsPid`): `./send aCanvas disconnect`
+
+```smalltalk
+SBECrossMorph >> drawOn: aCanvas
+  (Array with: self horBar with: self verBar) do: [ :rect |
+    aCanvas fillRectangle: rect color: self color.
+    ]
+```
+
+`WebCanvas/methods/fillRectangle-color-` sends JSON Canvas commands to the server, to forward to the client, to execute on the `<canvas>` element; e.g.
+
+```
+{ "method": "fillStyle", "value": 255 }
+{ "method": "fillRect", "params": [10, 10, 300, 200] }
+```
+
+Currently, colours (`aCross/color`) are just tagged ints converted to a CSS hex colour code: e.g. `int/255 -> #0000ff`. Colours-as-objects can come later.
+
+![SBECrossMorph drawing clip](./SBECrossMorph-drawOn.gif)
+
+It only takes 5 seconds to draw two rectangles! Just imagine what it will be like on the hardware of tomorrow, in the year 2000, or even later!
+
+```
+real    0m3.329s (mostly spent waiting for filesystem and process synchronisation)
+user    0m0.526s
+sys     0m0.261s
+```
+
+These figures imply that with FUSE and userspace exec optimisation it could take as little as 0.8 seconds to draw the rectangles ... lol
+
 # Nested BlockClosures Example
 
 ```Smalltalk
-SBECrossMorph >> drawOn: aCanvas
+SBECrossMorph >> drawOnMessy: aCanvas
   | topAndBottom1 topAndBottom2 topAndBottoms |
   topAndBottom1 := Array with: (self bounds) with: (Rectangle origin: 0@0 corner: 100@100).
   topAndBottom2 := Array with: (self bounds) with: (Rectangle origin: 100@100 corner: 200@200).
@@ -35,25 +86,22 @@ SBECrossMorph >> drawOn: aCanvas
 
 I think I've got it to perform correctly on this sort of thing.
 
-You will find that `aCanvas` is a `DummyCanvas` (`cat aCanvas/class`). Do the following:
+Do the following:
 
 ```bash
-./send aCross drawOn- aCanvas
+./send aCross drawOnMessy- aDummyCanvas
 ```
 
 Output:
 
 ```
-[ CANVAS COMMAND ]: aCanvas fillRectangle: boundsRect color: int/255
-...
-[ CANVAS COMMAND ]: aCanvas fillRectangle: new/aRectangle_123 color: int/255
-...
-[ CANVAS COMMAND ]: aCanvas fillRectangle: boundsRect color: int/255
-...
-[ CANVAS COMMAND ]: aCanvas fillRectangle: new/aRectangle_456 color: int/255
+[ CANVAS COMMAND ]: aDummyCanvas fillRectangle: boundsRect color: int/255
+[ CANVAS COMMAND ]: aDummyCanvas fillRectangle: new/aRectangle_123 color: int/255
+[ CANVAS COMMAND ]: aDummyCanvas fillRectangle: boundsRect color: int/255
+[ CANVAS COMMAND ]: aDummyCanvas fillRectangle: new/aRectangle_456 color: int/255
 nil
 ```
-...along with a ton of new objects under `new/` :)
+...along with a ton of new objects under `_new/` :)
 
 # Single BlockClosure example
 
@@ -148,6 +196,7 @@ It should have inherited the env var from the export, which will be a path to th
 Try `./send anArray containsInstanceOf- Rectangle` or `./send anArray containsInstanceOf- Roctongal`.
 
 # Blocks in Terminal
+Warning: speculation
 
 ```smalltalk
 anArray do: [ :each | each isInstanceOf: Rectangle ].

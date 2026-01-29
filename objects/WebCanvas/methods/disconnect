@@ -1,0 +1,5 @@
+self=$1
+wsPid=$(cat $self/_wsPid)
+rm -f $self/_wsPid
+kill -- -$wsPid 2>/dev/null
+rm -f "$(cat $self/_fifoPath)"

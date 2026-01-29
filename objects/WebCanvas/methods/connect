@@ -1,0 +1,10 @@
+self=$1
+fifoPath=$(cat $self/_fifoPath)
+
+if [[ ! -e "$fifoPath" ]]; then
+  mkfifo "$fifoPath"
+fi
+
+set -m # enable job control for process groups
+(tail -f "$fifoPath" | wscat -c ws://localhost:4000) &>/dev/null &
+echo $! > $self/_wsPid # for later cleanup

@@ -1,0 +1,21 @@
+# fillRectangle: aRect color: anInt
+self=$1
+rect=$2
+color=$3
+
+x=$(./send $rect left)
+y=$(./send $rect top)
+w=$(./send $rect width)
+h=$(./send $rect height)
+
+# Exporting tagged ints to the outside world...
+color=${color##*/}
+x=${x##*/}
+y=${y##*/}
+w=${w##*/}
+h=${h##*/}
+
+# Send to canvas
+fifoPath=$(cat $self/_fifoPath)
+echo "{ \"method\":\"fillStyle\",\"value\":$color }" > $fifoPath
+echo "{ \"method\":\"fillRect\",\"params\":[$x,$y,$w,$h] }" > $fifoPath
